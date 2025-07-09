@@ -353,13 +353,13 @@ class WatchdogReloaderLoop(ReloaderLoop):
                 *self.exclude_patterns,
             ],
         )
-        self.should_reload = False
+        self.should_reload = threading.Event()
 
     def trigger_reload(self, filename: str | bytes) -> None:
         # This is called inside an event handler, which means throwing
         # SystemExit has no effect.
         # https://github.com/gorakhargosh/watchdog/issues/294
-        self.should_reload = True
+        self.should_reload.set()
         self.log_reload(filename)
 
     def __enter__(self) -> ReloaderLoop:
@@ -372,9 +372,8 @@ class WatchdogReloaderLoop(ReloaderLoop):
         self.observer.join()
 
     def run(self) -> None:
-        while not self.should_reload:
+        while not self.should_reload.wait(timeout=self.interval):
             self.run_step()
-            time.sleep(self.interval)
 
         sys.exit(3)
 
